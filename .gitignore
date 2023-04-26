@@ -21,3 +21,4 @@ build/
 log/
 
 *.log
+config.ini
