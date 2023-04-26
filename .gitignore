@@ -8,10 +8,6 @@ __pycache__
 
 desktop.ini
 
-*.jpg
-
-*.png
-
 *.spec
 
 dist/
