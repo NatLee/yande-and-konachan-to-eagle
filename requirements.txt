@@ -1,0 +1,10 @@
+pyyaml
+
+requests
+
+bs4
+xmltodict
+
+tqdm
+
+eaglewrapper==1.1.1
