@@ -51,7 +51,7 @@ optional arguments:
 
 The result is shown as below.
 
-![](./doc/sample.png)
+![](./docs/sample.png)
 
 It includes name, tags and URL of the image in the source.
 
