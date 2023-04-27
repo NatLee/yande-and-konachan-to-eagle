@@ -54,7 +54,7 @@ optional arguments:
 
 抓取的圖片就像下方圖片一樣
 
-![](./doc/sample.png)
+![](./docs/sample.png)
 
 它包含圖片的名稱、標籤以及URL，要注意的是因爲 Eagle 對於每張圖都有獨立 ID ，所以存圖的速度會較慢
 
