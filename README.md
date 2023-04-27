@@ -2,7 +2,7 @@
 
 [EN](./README.md) | [TW](./README.TW.md)
 
-![](./docs/sample.png)
+![image](https://user-images.githubusercontent.com/10178964/234870235-f0dbe874-c1e8-4320-9c52-d6d920fa274d.png)
 
 ## Introduction
 
