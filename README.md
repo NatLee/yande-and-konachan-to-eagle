@@ -47,6 +47,13 @@ optional arguments:
                         Target site for image crawling
 ```
 
+## Example
+
+The result is shown as below.
+
+![](./doc/sample.png)
+
+It includes name, tags and URL of the image in the source.
 
 
 ## Contributor
