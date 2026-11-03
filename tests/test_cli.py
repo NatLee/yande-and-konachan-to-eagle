@@ -123,7 +123,7 @@ def test_refused_posts_are_listed_and_make_the_exit_code_1(workdir, site, fake_e
     assert cli.main(['--target', 'yande', '--eagle-url', fake_eagle.url]) == 1
 
     err = capsys.readouterr().err
-    assert 'Eagle refused: #1' in err
+    assert 'Eagle refused: #1. To try one again: --search id:1' in err
     assert 'Unsupported file' in err
     assert read_last_id(workdir / 'config.ini') == 2  # as in 2023, the run moves on
 
@@ -154,3 +154,89 @@ def test_a_missing_tag_map_is_created_from_the_example(workdir, site, fake_eagle
     assert (workdir / 'map.yaml').read_bytes() == EXAMPLE_MAP.read_bytes()
     assert 'Created it from the example map' in capsys.readouterr().err
     assert fake_eagle.added[0]['tags'] == ['比基尼', '泳衣', '海邊', '海灘']
+
+
+def test_search_imports_the_matches_newest_first_and_leaves_the_progress_alone(workdir, site, fake_eagle):
+    site.posts = [make_post(i, 'sky' if i % 2 else 'sea') for i in range(1, 8)]
+    write_config(workdir / 'config.ini', site.url, last_id=3)
+
+    assert cli.main(['--target', 'yande', '--search', 'sky', '--eagle-url', fake_eagle.url]) == 0
+
+    assert [item['name'].split('_')[1] for item in fake_eagle.added] == ['7', '5', '3', '1']
+    assert site.searches[0] == 'sky'
+    assert read_last_id(workdir / 'config.ini') == 3
+    assert (workdir / 'imported.txt').read_text(encoding='utf-8') == 'yande 7\nyande 5\nyande 3\nyande 1\n'
+
+
+def test_posts_imported_by_one_run_are_skipped_by_the_next(workdir, site, fake_eagle, capsys):
+    site.posts = [make_post(i) for i in range(1, 6)]
+    write_config(workdir / 'config.ini', site.url)
+    eagle = ['--target', 'yande', '--eagle-url', fake_eagle.url]
+
+    assert cli.main(eagle + ['--search', 'landscape', '--limit', '2']) == 0  # posts 5 and 4
+    assert cli.main(eagle) == 0  # the new posts, from ID 1 up
+
+    assert [item['name'].split('_')[1] for item in fake_eagle.added] == ['5', '4', '1', '2', '3']
+    assert 'Done: 3 added to Eagle, 2 already imported' in capsys.readouterr().err
+    assert read_last_id(workdir / 'config.ini') == 5
+
+
+def test_limit_stops_early_and_the_next_run_goes_on_from_there(workdir, site, fake_eagle):
+    site.posts = [make_post(i) for i in range(1, 8)]
+    write_config(workdir / 'config.ini', site.url)
+    eagle = ['--target', 'yande', '--eagle-url', fake_eagle.url]
+
+    assert cli.main(eagle + ['--limit', '4']) == 0
+    assert read_last_id(workdir / 'config.ini') == 4
+    assert cli.main(eagle) == 0
+
+    assert [item['name'].split('_')[1] for item in fake_eagle.added] == ['1', '2', '3', '4', '5', '6', '7']
+
+
+def test_limit_must_be_positive(capsys):
+    with pytest.raises(SystemExit) as stop:
+        cli.build_parser().parse_args(['--limit', '0'])
+
+    assert stop.value.code == 2
+    assert 'must be 1 or more' in capsys.readouterr().err
+
+
+def test_a_dry_run_needs_no_eagle_and_writes_nothing(tmp_path, site, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    site.posts = [make_post(1, 'bikini'), make_post(2, 'long_hair')]
+    monkeypatch.setitem(cli.SITES, 'yande', site.url)  # no config file: the default address is used
+
+    code = cli.main(['--target', 'yande', '--dry-run', '--folder', 'Inbox', '--eagle-url', closed_port_url()])
+
+    assert code == 0
+    out, err = capsys.readouterr()
+    assert out.splitlines() == ['#1 [s] yande.re_1_bikini.jpg -> 比基尼, 泳衣',
+                                '#2 [s] yande.re_2_long_hair.jpg -> (no tags from the map)']
+    assert 'Dry run: 2 would be added to Eagle' in err
+    assert 'Eagle folder "Inbox"' in err
+    assert list(tmp_path.iterdir()) == []  # no config.ini, map.yaml or imported.txt
+
+
+def test_folder_puts_the_items_in_an_existing_or_new_eagle_folder(workdir, site, fake_eagle):
+    site.posts = [make_post(1)]
+    write_config(workdir / 'config.ini', site.url)
+    fake_eagle.folders = [{'id': 'A1', 'name': 'Art', 'children': [{'id': 'B2', 'name': 'Booru', 'children': []}]}]
+    eagle = ['--target', 'yande', '--eagle-url', fake_eagle.url]
+
+    assert cli.main(eagle + ['--folder', 'Booru']) == 0
+    site.posts.append(make_post(2))
+    assert cli.main(eagle + ['--folder', 'New one']) == 0
+
+    assert fake_eagle.added[0]['folderId'] == 'B2'
+    assert fake_eagle.added[1]['folderId'] == fake_eagle.folders[-1]['id']
+    assert fake_eagle.folders[-1]['name'] == 'New one'
+
+
+def test_history_path_puts_the_history_elsewhere(workdir, site, fake_eagle):
+    site.posts = [make_post(1)]
+    write_config(workdir / 'config.ini', site.url)
+
+    cli.main(['--target', 'yande', '--history-path', 'seen.txt', '--eagle-url', fake_eagle.url])
+
+    assert (workdir / 'seen.txt').read_text(encoding='utf-8') == 'yande 1\n'
+    assert not (workdir / 'imported.txt').exists()

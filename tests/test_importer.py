@@ -5,7 +5,8 @@ import pytest
 from eaglewrapper import Eagle, EagleConnectionError
 from fakes import make_post
 
-from yk2eagle.importer import Importer, annotation_for
+from yk2eagle.history import ImportHistory
+from yk2eagle.importer import Importer, annotation_for, find_folder, resolve_folder
 from yk2eagle.moebooru import Post
 from yk2eagle.tag_manager import TagManager
 
@@ -87,3 +88,81 @@ def test_a_closed_eagle_stops_the_run_before_the_post_counts(tag_manager):
         importer.run(posts(make_post(1)), after_each=lambda post: done.append(post.id))
     assert done == []
     assert importer.summary.imported == []
+
+
+def test_posts_in_the_history_are_skipped_and_accepted_ones_are_added_to_it(fake_eagle, tag_manager, tmp_path):
+    history = ImportHistory(str(tmp_path / 'imported.txt'))
+    history.add('yande', 1)
+    fake_eagle.refuse = {'yande.re_3_landscape_sky.jpg'}
+
+    summary = importer_for(fake_eagle, tag_manager, target='yande', history=history).run(
+        posts(make_post(1), make_post(2), make_post(3)))
+
+    assert summary.already_imported == [1]
+    assert summary.imported == [2]
+    assert summary.failed == [3]
+    assert [item['name'] for item in fake_eagle.added] == ['yande.re_2_landscape_sky.jpg']
+    again = ImportHistory(str(tmp_path / 'imported.txt'))
+    assert (len(again), ('yande', 2) in again, ('yande', 3) in again) == (2, True, False)
+
+
+def test_the_history_is_kept_per_site(fake_eagle, tag_manager, tmp_path):
+    history = ImportHistory(str(tmp_path / 'imported.txt'))
+    history.add('konachan', 1)
+
+    summary = importer_for(fake_eagle, tag_manager, target='yande', history=history).run(posts(make_post(1)))
+
+    assert summary.imported == [1]
+
+
+def test_a_dry_run_only_describes_the_posts(tag_manager, tmp_path):
+    lines = []
+    history = ImportHistory(str(tmp_path / 'imported.txt'))
+    importer = Importer(tag_manager, None, target='yande', history=history, say=lines.append)
+
+    summary = importer.run(posts(make_post(7, 'landscape sky', 'q'), make_post(8, 'long_hair'),
+                                 make_post(9, with_file=False)))
+
+    assert importer.dry_run
+    assert lines == ['#7 [q] yande.re_7_landscape_sky.jpg -> 風景, 天空',
+                     '#8 [s] yande.re_8_long_hair.jpg -> (no tags from the map)']
+    assert (summary.imported, summary.no_file) == ([7, 8], [9])
+    assert not (tmp_path / 'imported.txt').exists()
+
+
+def test_items_go_to_the_folder_when_one_is_given(fake_eagle, tag_manager):
+    importer_for(fake_eagle, tag_manager, folder_id='KBJJSMMVF9WYL').run(posts(make_post(1)))
+
+    assert fake_eagle.added[0]['folderId'] == 'KBJJSMMVF9WYL'
+
+
+def test_without_a_folder_no_folder_is_sent(fake_eagle, tag_manager):
+    importer_for(fake_eagle, tag_manager).run(posts(make_post(1)))
+
+    assert 'folderId' not in fake_eagle.added[0]
+
+
+FOLDERS = [
+    {'id': 'A1', 'name': 'Art', 'children': [{'id': 'B2', 'name': 'Wallpapers', 'children': []}]},
+    {'id': 'C3', 'name': 'Wallpapers', 'children': []},
+]
+
+
+@pytest.mark.parametrize('wanted, expected', [('Art', 'A1'), ('Wallpapers', 'B2'), ('C3', 'C3'), ('Nope', None)])
+def test_find_folder_looks_by_name_or_id_including_subfolders(wanted, expected):
+    found = find_folder(FOLDERS, wanted)
+
+    assert (found or {}).get('id') == expected
+
+
+def test_resolve_folder_uses_an_existing_folder_or_creates_one(fake_eagle):
+    eagle = Eagle(base_url=fake_eagle.url, raise_errors=True)
+    fake_eagle.folders = [dict(folder) for folder in FOLDERS]
+
+    assert resolve_folder(eagle, 'Wallpapers') == 'B2'
+    new_id = resolve_folder(eagle, 'From yande.re')
+
+    assert [folder['name'] for folder in fake_eagle.folders][-1] == 'From yande.re'
+    assert new_id == fake_eagle.folders[-1]['id']
+    assert [r['json'] for r in fake_eagle.requests if r['path'] == '/api/folder/create'] == [
+        {'folderName': 'From yande.re'}]
