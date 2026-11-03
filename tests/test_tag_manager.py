@@ -1,12 +1,10 @@
 import os
-import sys
-from pathlib import Path
-sys.path.append(Path('./').absolute().as_posix())
-
-import yaml
 import tempfile
 import unittest
-from tag_manager import TagManager
+
+import yaml
+
+from yk2eagle.tag_manager import TagManager
 
 
 class TestTagManager(unittest.TestCase):

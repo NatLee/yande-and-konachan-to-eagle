@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 import xmltodict
 
-from tag_manager import TagManager
+from .tag_manager import TagManager
 
 class ImageScraper:
     def __init__(self, site: str, tag_parser: TagManager):

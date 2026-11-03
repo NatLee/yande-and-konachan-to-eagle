@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yande-and-konachan-to-eagle"
+dynamic = ["version"]
+description = "Add images and their tags from yande.re and konachan.com to Eagle, with your own tag names."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Nat Lee", email = "natlee.work@gmail.com" }]
+keywords = ["eagle", "eaglewrapper", "yande.re", "konachan", "moebooru", "image-collection"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+    "beautifulsoup4",
+    "eaglewrapper==1.1.1",
+    "loguru",
+    "pyyaml",
+    "requests",
+    "tqdm",
+    "xmltodict",
+]
+
+[project.urls]
+Homepage = "https://github.com/NatLee/yande-and-konachan-to-eagle"
+Issues = "https://github.com/NatLee/yande-and-konachan-to-eagle/issues"
+
+[project.scripts]
+yande-and-konachan-to-eagle = "yk2eagle.cli:main"
+yk2eagle = "yk2eagle.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "yk2eagle.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
