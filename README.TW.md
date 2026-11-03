@@ -25,22 +25,22 @@
 ## 運作方式
 
 ```mermaid
-flowchart LR
+flowchart TB
     site["yande.re 或 konachan.com<br/>JSON API：/post.json"]
     seen{"已經在<br/>imported.txt？"}
-    skip["略過"]
     map["map.yaml<br/>站上的 tag → 你的 tag"]
     wrapper["EagleWrapper<br/>add_from_url()"]
     eagle["Eagle<br/>localhost:41595"]
+    skip["略過"]
     history[("imported.txt")]
     config[("config.ini<br/>last_download_max_id")]
 
     site -->|"上次之後的新貼文，<br/>或 --search TAGS"| seen
-    seen -->|是| skip
     seen -->|否| map
+    seen -->|是| skip
     map --> wrapper
     wrapper -->|"本機 HTTP API"| eagle
-    eagle -.->|"收下了：記住這篇"| history
+    eagle -.->|"收下了"| history
     site -.->|"一般執行：<br/>每篇做完就存編號"| config
 ```
 

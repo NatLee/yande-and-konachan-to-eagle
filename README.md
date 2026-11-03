@@ -26,23 +26,23 @@ have, and can show you everything first with `--dry-run`. The Eagle side is
 ## How it works
 
 ```mermaid
-flowchart LR
+flowchart TB
     site["yande.re or konachan.com<br/>JSON API: /post.json"]
     seen{"Already in<br/>imported.txt?"}
-    skip["Skipped"]
     map["map.yaml<br/>site tags → your tags"]
     wrapper["EagleWrapper<br/>add_from_url()"]
     eagle["Eagle<br/>localhost:41595"]
+    skip["Skipped"]
     history[("imported.txt")]
     config[("config.ini<br/>last_download_max_id")]
 
     site -->|"new posts since last time,<br/>or --search TAGS"| seen
-    seen -->|yes| skip
     seen -->|no| map
+    seen -->|yes| skip
     map --> wrapper
     wrapper -->|"local HTTP API"| eagle
-    eagle -.->|"accepted: remember the post"| history
-    site -.->|"plain run: save the ID after each post"| config
+    eagle -.->|"accepted"| history
+    site -.->|"plain run: ID saved<br/>after each post"| config
 ```
 
 1. The site's JSON API sends 100 posts per request: everything newer than the last run, oldest first, or the
