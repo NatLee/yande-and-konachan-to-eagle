@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import shutil
 from importlib import resources
+from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
@@ -25,7 +26,8 @@ EXAMPLE_MAP = resources.files(__package__) / 'map.example.yaml'
 
 
 def create_map_from_example(path: str) -> None:
-    """Write the example map to ``path``."""
+    """Write the example map to ``path``, making its folder if needed."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with resources.as_file(EXAMPLE_MAP) as example:
         shutil.copyfile(example, path)
 

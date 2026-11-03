@@ -50,5 +50,6 @@ class ImportHistory:
     def add(self, target: str, post_id: int) -> None:
         """Remember that the post is in Eagle, in memory and in the file."""
         self._imported.add((target, post_id))
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open('a', encoding='utf-8') as file:
             file.write(f'{target} {post_id}\n')

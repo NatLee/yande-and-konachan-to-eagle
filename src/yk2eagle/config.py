@@ -37,6 +37,7 @@ def create_default_config_file(config_path: str) -> bool:
     logger.warning('Creating default config file to the specific path!')
     print(f'Default content of the config:\n----\n{default_config}\n----\n')
 
+    Path(config_path).parent.mkdir(parents=True, exist_ok=True)
     with open(config_path, 'w', encoding='utf-8') as config_file:
         config_file.write(default_config)
     return True

@@ -240,3 +240,26 @@ def test_history_path_puts_the_history_elsewhere(workdir, site, fake_eagle):
 
     assert (workdir / 'seen.txt').read_text(encoding='utf-8') == 'yande 1\n'
     assert not (workdir / 'imported.txt').exists()
+
+
+def test_files_can_live_in_a_folder_that_does_not_exist_yet(tmp_path, site, fake_eagle, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(cli.SITES, 'konachan', site.url)
+    site.posts = [make_post(1, 'beach', site='konachan.com')]
+
+    code = cli.main(['--config_path', 'setup/konachan.ini', '--yaml_path', 'setup/maps/map.yaml',
+                     '--eagle-url', fake_eagle.url])
+
+    assert code == 0
+    assert sorted(path.name for path in (tmp_path / 'setup').rglob('*')) == [
+        'imported.txt', 'konachan.ini', 'map.yaml', 'maps']
+    assert fake_eagle.added[0]['tags'] == ['海邊', '海灘']
+
+
+def test_a_config_path_that_cannot_be_written_is_one_line(tmp_path, fake_eagle, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'taken').write_text('a file, not a folder', encoding='utf-8')
+
+    assert cli.main(['--config_path', 'taken/config.ini', '--eagle-url', fake_eagle.url]) == 1
+
+    assert 'Cannot read the config file taken/config.ini' in capsys.readouterr().err

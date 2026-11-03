@@ -79,12 +79,12 @@ def setup_logging() -> None:
 
 
 def load_config(path: str, dry_run: bool) -> Config:
-    if not Path(path).exists():
-        if dry_run:
-            logger.info(f'No config file at {path}: using the defaults (dry run, nothing written).')
-        else:
-            create_default_config_file(path)
     try:
+        if not Path(path).exists():
+            if dry_run:
+                logger.info(f'No config file at {path}: using the defaults (dry run, nothing written).')
+            else:
+                create_default_config_file(path)
         return Config(path)
     except (OSError, configparser.Error) as exc:
         raise CliError(f'Cannot read the config file {path}: {exc}') from exc
