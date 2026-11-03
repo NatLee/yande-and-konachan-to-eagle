@@ -1,0 +1,265 @@
+import configparser
+import socket
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+from fakes import make_post
+
+from yk2eagle import cli
+from yk2eagle.config import default_config_text
+from yk2eagle.moebooru import MoebooruClient, make_session
+from yk2eagle.tag_manager import EXAMPLE_MAP
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.fixture
+def workdir(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'map.yaml').write_text('landscape: [風景]\nsky: [天空]\n', encoding='utf-8')
+    return tmp_path
+
+
+class QuickClient(MoebooruClient):
+    """The real client, minus the polite pause between requests and before retries."""
+
+    def __init__(self, site, **kwargs):
+        super().__init__(site, session=make_session(backoff_factor=0), interval=0, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def no_waiting(monkeypatch):
+    monkeypatch.setattr(cli, 'MoebooruClient', QuickClient)
+
+
+def write_config(path, site_url, last_id=0, target='yande'):
+    path.write_text(f'[{target}]\nsite = {site_url}\nlast_download_max_id = {last_id}\n', encoding='utf-8')
+
+
+def read_last_id(path, target='yande'):
+    cfg = configparser.ConfigParser()
+    cfg.read(path, encoding='utf-8')
+    return cfg.getint(target, 'last_download_max_id')
+
+
+def closed_port_url():
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        return f'http://127.0.0.1:{sock.getsockname()[1]}'
+
+
+def test_the_2023_options_keep_their_names_and_defaults():
+    args = cli.build_parser().parse_args([])
+
+    assert (args.config_path, args.yaml_path, args.target) == ('./config.ini', 'map.yaml', 'konachan')
+
+
+@pytest.mark.parametrize('argv, expected', [
+    (['--target', 'yande'], ('./config.ini', 'map.yaml', 'yande')),
+    (['--t', 'yande', '--config', 'my.ini', '--yaml', 'my.yaml'], ('my.ini', 'my.yaml', 'yande')),
+    (['--config_path=a.ini', '--yaml_path=b.yaml', '--target=konachan'], ('a.ini', 'b.yaml', 'konachan')),
+])
+def test_the_2023_command_lines_still_parse_the_same(argv, expected):
+    # Abbreviations such as --t and --config worked in 2023, so new options must not collide with them.
+    args = cli.build_parser().parse_args(argv)
+
+    assert (args.config_path, args.yaml_path, args.target) == expected
+
+
+def test_new_posts_go_to_eagle_and_the_progress_is_saved(workdir, site, fake_eagle):
+    site.posts = [make_post(i) for i in (9, 10, 11, 12)]
+    write_config(workdir / 'config.ini', site.url, last_id=9)
+
+    code = cli.main(['--target', 'yande', '--eagle-url', fake_eagle.url])
+
+    assert code == 0
+    assert [item['name'] for item in fake_eagle.added] == [
+        'yande.re_10_landscape_sky.jpg', 'yande.re_11_landscape_sky.jpg', 'yande.re_12_landscape_sky.jpg']
+    assert fake_eagle.added[0]['tags'] == ['風景', '天空']
+    assert read_last_id(workdir / 'config.ini') == 12
+
+    # The next run starts after post 12 and finds nothing new.
+    assert cli.main(['--target', 'yande', '--eagle-url', fake_eagle.url]) == 0
+    assert len(fake_eagle.added) == 3
+    assert site.searches[-1] == 'id:>12 order:id'
+
+
+def test_a_missing_config_file_is_created_with_the_defaults(workdir, fake_eagle, monkeypatch, capsys):
+    monkeypatch.setattr('yk2eagle.cli.MoebooruClient.newer_than', lambda self, post_id: iter(()))
+
+    assert cli.main(['--eagle-url', fake_eagle.url]) == 0
+
+    assert (workdir / 'config.ini').read_text(encoding='utf-8') == default_config_text()
+    assert 'Default content of the config' in capsys.readouterr().out
+
+
+def test_eagle_not_running_is_explained_before_the_site_is_asked(workdir, site, capsys):
+    write_config(workdir / 'config.ini', site.url)
+    url = closed_port_url()
+
+    assert cli.main(['--target', 'yande', '--eagle-url', url]) == 1
+
+    assert f'Eagle is not answering at {url}. Open Eagle' in capsys.readouterr().err
+    assert site.requests == []
+
+
+def test_a_blocked_site_is_explained(workdir, site, fake_eagle, capsys):
+    write_config(workdir / 'config.ini', site.url, target='konachan')
+    site.scripted = [(403, {'Content-Type': 'text/html'}, b'<title>Just a moment...</title>')]
+
+    assert cli.main(['--eagle-url', fake_eagle.url]) == 1
+
+    assert 'check your browser' in capsys.readouterr().err
+    assert fake_eagle.added == []
+
+
+def test_refused_posts_are_listed_and_make_the_exit_code_1(workdir, site, fake_eagle, capsys):
+    site.posts = [make_post(1), make_post(2)]
+    fake_eagle.refuse = {'yande.re_1_landscape_sky.jpg'}
+    write_config(workdir / 'config.ini', site.url)
+
+    assert cli.main(['--target', 'yande', '--eagle-url', fake_eagle.url]) == 1
+
+    err = capsys.readouterr().err
+    assert 'Eagle refused: #1. To try one again: --search id:1' in err
+    assert 'Unsupported file' in err
+    assert read_last_id(workdir / 'config.ini') == 2  # as in 2023, the run moves on
+
+
+def test_a_broken_tag_map_is_one_line_not_a_traceback(workdir, fake_eagle, capsys):
+    (workdir / 'map.yaml').write_text('- not\n- a map\n', encoding='utf-8')
+
+    assert cli.main(['--eagle-url', fake_eagle.url]) == 1
+
+    assert 'Cannot read the tag map map.yaml' in capsys.readouterr().err
+
+
+def test_main_py_still_runs_from_a_checkout():
+    result = subprocess.run([sys.executable, str(ROOT / 'main.py'), '--help'],
+                            capture_output=True, text=True, check=True)
+
+    for option in ('--config_path', '--yaml_path', '--target'):
+        assert option in result.stdout
+
+
+def test_a_missing_tag_map_is_created_from_the_example(workdir, site, fake_eagle, capsys):
+    (workdir / 'map.yaml').unlink()
+    site.posts = [make_post(1, 'bikini beach')]
+    write_config(workdir / 'config.ini', site.url)
+
+    assert cli.main(['--target', 'yande', '--eagle-url', fake_eagle.url]) == 0
+
+    assert (workdir / 'map.yaml').read_bytes() == EXAMPLE_MAP.read_bytes()
+    assert 'Created it from the example map' in capsys.readouterr().err
+    assert fake_eagle.added[0]['tags'] == ['比基尼', '泳衣', '海邊', '海灘']
+
+
+def test_search_imports_the_matches_newest_first_and_leaves_the_progress_alone(workdir, site, fake_eagle):
+    site.posts = [make_post(i, 'sky' if i % 2 else 'sea') for i in range(1, 8)]
+    write_config(workdir / 'config.ini', site.url, last_id=3)
+
+    assert cli.main(['--target', 'yande', '--search', 'sky', '--eagle-url', fake_eagle.url]) == 0
+
+    assert [item['name'].split('_')[1] for item in fake_eagle.added] == ['7', '5', '3', '1']
+    assert site.searches[0] == 'sky'
+    assert read_last_id(workdir / 'config.ini') == 3
+    assert (workdir / 'imported.txt').read_text(encoding='utf-8') == 'yande 7\nyande 5\nyande 3\nyande 1\n'
+
+
+def test_posts_imported_by_one_run_are_skipped_by_the_next(workdir, site, fake_eagle, capsys):
+    site.posts = [make_post(i) for i in range(1, 6)]
+    write_config(workdir / 'config.ini', site.url)
+    eagle = ['--target', 'yande', '--eagle-url', fake_eagle.url]
+
+    assert cli.main(eagle + ['--search', 'landscape', '--limit', '2']) == 0  # posts 5 and 4
+    assert cli.main(eagle) == 0  # the new posts, from ID 1 up
+
+    assert [item['name'].split('_')[1] for item in fake_eagle.added] == ['5', '4', '1', '2', '3']
+    assert 'Done: 3 added to Eagle, 2 already imported' in capsys.readouterr().err
+    assert read_last_id(workdir / 'config.ini') == 5
+
+
+def test_limit_stops_early_and_the_next_run_goes_on_from_there(workdir, site, fake_eagle):
+    site.posts = [make_post(i) for i in range(1, 8)]
+    write_config(workdir / 'config.ini', site.url)
+    eagle = ['--target', 'yande', '--eagle-url', fake_eagle.url]
+
+    assert cli.main(eagle + ['--limit', '4']) == 0
+    assert read_last_id(workdir / 'config.ini') == 4
+    assert cli.main(eagle) == 0
+
+    assert [item['name'].split('_')[1] for item in fake_eagle.added] == ['1', '2', '3', '4', '5', '6', '7']
+
+
+def test_limit_must_be_positive(capsys):
+    with pytest.raises(SystemExit) as stop:
+        cli.build_parser().parse_args(['--limit', '0'])
+
+    assert stop.value.code == 2
+    assert 'must be 1 or more' in capsys.readouterr().err
+
+
+def test_a_dry_run_needs_no_eagle_and_writes_nothing(tmp_path, site, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    site.posts = [make_post(1, 'bikini'), make_post(2, 'long_hair')]
+    monkeypatch.setitem(cli.SITES, 'yande', site.url)  # no config file: the default address is used
+
+    code = cli.main(['--target', 'yande', '--dry-run', '--folder', 'Inbox', '--eagle-url', closed_port_url()])
+
+    assert code == 0
+    out, err = capsys.readouterr()
+    assert out.splitlines() == ['#1 [s] yande.re_1_bikini.jpg -> 比基尼, 泳衣',
+                                '#2 [s] yande.re_2_long_hair.jpg -> (no tags from the map)']
+    assert 'Dry run: 2 would be added to Eagle' in err
+    assert 'Eagle folder "Inbox"' in err
+    assert list(tmp_path.iterdir()) == []  # no config.ini, map.yaml or imported.txt
+
+
+def test_folder_puts_the_items_in_an_existing_or_new_eagle_folder(workdir, site, fake_eagle):
+    site.posts = [make_post(1)]
+    write_config(workdir / 'config.ini', site.url)
+    fake_eagle.folders = [{'id': 'A1', 'name': 'Art', 'children': [{'id': 'B2', 'name': 'Booru', 'children': []}]}]
+    eagle = ['--target', 'yande', '--eagle-url', fake_eagle.url]
+
+    assert cli.main(eagle + ['--folder', 'Booru']) == 0
+    site.posts.append(make_post(2))
+    assert cli.main(eagle + ['--folder', 'New one']) == 0
+
+    assert fake_eagle.added[0]['folderId'] == 'B2'
+    assert fake_eagle.added[1]['folderId'] == fake_eagle.folders[-1]['id']
+    assert fake_eagle.folders[-1]['name'] == 'New one'
+
+
+def test_history_path_puts_the_history_elsewhere(workdir, site, fake_eagle):
+    site.posts = [make_post(1)]
+    write_config(workdir / 'config.ini', site.url)
+
+    cli.main(['--target', 'yande', '--history-path', 'seen.txt', '--eagle-url', fake_eagle.url])
+
+    assert (workdir / 'seen.txt').read_text(encoding='utf-8') == 'yande 1\n'
+    assert not (workdir / 'imported.txt').exists()
+
+
+def test_files_can_live_in_a_folder_that_does_not_exist_yet(tmp_path, site, fake_eagle, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setitem(cli.SITES, 'konachan', site.url)
+    site.posts = [make_post(1, 'beach', site='konachan.com')]
+
+    code = cli.main(['--config_path', 'setup/konachan.ini', '--yaml_path', 'setup/maps/map.yaml',
+                     '--eagle-url', fake_eagle.url])
+
+    assert code == 0
+    assert sorted(path.name for path in (tmp_path / 'setup').rglob('*')) == [
+        'imported.txt', 'konachan.ini', 'map.yaml', 'maps']
+    assert fake_eagle.added[0]['tags'] == ['海邊', '海灘']
+
+
+def test_a_config_path_that_cannot_be_written_is_one_line(tmp_path, fake_eagle, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'taken').write_text('a file, not a folder', encoding='utf-8')
+
+    assert cli.main(['--config_path', 'taken/config.ini', '--eagle-url', fake_eagle.url]) == 1
+
+    assert 'Cannot read the config file taken/config.ini' in capsys.readouterr().err

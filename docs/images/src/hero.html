@@ -1,0 +1,178 @@
+<!doctype html>
+<!--
+  README banner. Render the light and dark versions (#dark picks the dark theme) with a
+  Chromium-based browser, e.g.
+    msedge --headless=new --hide-scrollbars --force-device-scale-factor=2 --window-size=960,400
+           --default-background-color=00000000 --virtual-time-budget=5000
+           --screenshot=hero-dark.png "file:///…/hero.html#dark"
+  then shrink the PNGs: magick hero-dark.png -strip -dither None -colors 256 PNG8:hero-dark.png
+  Everything on it comes from the code: the JSON API call and the "id:>N order:id" search in
+  src/yk2eagle/moebooru.py, the "beach" entry of src/yk2eagle/map.example.yaml, the
+  add_from_url call and the AUTO_DOWNLOAD note in src/yk2eagle/importer.py, the history file
+  in src/yk2eagle/history.py. The picture in the Eagle card is a drawn placeholder, not a post.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>yande-and-konachan-to-eagle banner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@500&display=block" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #f6f8fa; --ink: #1f2328; --muted: #59636e; --line: #d1d9e0; --card: #ffffff;
+    --blue: #0969da; --green: #1a7f37; --purple: #8250df; --orange: #bc4c00;
+    --chip: #ddf4ff; --chip-ink: #0550ae;
+    --shadow: 0 1px 2px rgba(31,35,40,.06), 0 6px 18px rgba(31,35,40,.06);
+    --tint1: rgba(130,80,223,.09); --tint2: rgba(9,105,218,.08); --wire: #afb8c1;
+    --sky1: #b6e3ff; --sky2: #fff1c2; --hill1: #6fdd8b; --hill2: #2da44e; --sun: #f6c445;
+  }
+  .dark {
+    --bg: #0d1117; --bg2: #151b23; --ink: #f0f6fc; --muted: #9198a1; --line: #3d444d; --card: #151b23;
+    --blue: #4493f8; --green: #3fb950; --purple: #ab7df8; --orange: #f0883e;
+    --chip: #0c2d6b; --chip-ink: #a5d6ff;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    --tint1: rgba(171,125,248,.13); --tint2: rgba(68,147,248,.12); --wire: #656c76;
+    --sky1: #1f4f7a; --sky2: #3b3a5e; --hill1: #2ea043; --hill2: #196c2e; --sun: #d29922;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; }
+  body { width: 960px; height: 400px; font-family: Inter, "Segoe UI", sans-serif; color: var(--ink); }
+  .frame { position: relative; width: 960px; height: 400px; border-radius: 22px; overflow: hidden;
+           border: 1px solid var(--line);
+           background: radial-gradient(520px 300px at 92% 8%, var(--tint1), transparent 70%),
+                       radial-gradient(420px 260px at 4% 100%, var(--tint2), transparent 70%), var(--bg); }
+  .dots { position: absolute; inset: 0; opacity: .5;
+          background-image: radial-gradient(var(--line) 1px, transparent 1.2px); background-size: 22px 22px;
+          -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 60%, #000 100%); }
+
+  header { position: absolute; left: 44px; top: 32px; display: flex; align-items: flex-start; gap: 18px; }
+  .mark { width: 58px; height: 58px; border-radius: 16px; flex: none; display: grid; place-items: center;
+          background: linear-gradient(140deg, #8250df, #0969da 60%, #1a7f37); box-shadow: var(--shadow); }
+  h1 { margin: 1px 0 0; font-size: 38px; font-weight: 800; letter-spacing: -0.035em; line-height: 1; white-space: nowrap; }
+  .tag { margin: 9px 0 0; font-size: 17px; color: var(--muted); letter-spacing: -0.005em; white-space: nowrap; }
+  .tag b { color: var(--ink); font-weight: 600; }
+  .pip { display: inline-block; margin-top: 13px; font-family: "JetBrains Mono", Consolas, monospace; font-size: 13px;
+         padding: 7px 13px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow);
+         white-space: nowrap; }
+  .pip span { color: var(--muted); margin-right: 8px; }
+
+  .node { position: absolute; top: 200px; height: 140px; background: var(--card); border: 1px solid var(--line);
+          border-radius: 14px; box-shadow: var(--shadow); padding: 13px 15px; }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+           display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .label i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .mono { font-family: "JetBrains Mono", Consolas, monospace; font-size: 13.5px; margin-top: 9px; white-space: nowrap; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 6px; white-space: nowrap; }
+  .sub code, .mono .dim { font-family: "JetBrains Mono", Consolas, monospace; font-size: 11.5px; color: var(--muted); }
+  .chips { display: flex; gap: 5px; flex-wrap: nowrap; margin-top: 8px; }
+  .chip { font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif; font-size: 11.5px; font-weight: 500;
+          padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--chip-ink); white-space: nowrap; }
+
+  #site { left: 44px; width: 186px; }    #site .label i { background: var(--blue); }
+  #map { left: 254px; width: 190px; }    #map .label i { background: var(--purple); }
+  #wrap { left: 468px; width: 196px; }   #wrap .label i { background: var(--green); }
+  #eagle { left: 688px; width: 228px; }  #eagle .label i { background: var(--orange); }
+
+  .item { display: flex; gap: 10px; margin-top: 9px; }
+  .thumb { width: 64px; height: 64px; border-radius: 8px; flex: none; overflow: hidden; border: 1px solid var(--line); }
+  .meta { min-width: 0; }
+  #eagle .name { font-family: "JetBrains Mono", Consolas, monospace; font-size: 11.5px; white-space: nowrap; margin-top: 10px; }
+  .meta .chips { margin-top: 1px; }
+  .meta .note { margin-top: 6px; }
+  .from { font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; align-self: center; margin-right: 2px; }
+  .note { font-family: "JetBrains Mono", Consolas, monospace; font-size: 10.5px; color: var(--muted); margin-top: 8px;
+          white-space: nowrap; }
+
+  .foot { position: absolute; left: 44px; right: 44px; top: 356px; display: flex; gap: 22px; font-size: 12.5px;
+          color: var(--muted); white-space: nowrap; }
+  .foot b { color: var(--ink); font-weight: 600; font-family: "JetBrains Mono", Consolas, monospace; font-size: 12px; }
+
+  svg.wires { position: absolute; inset: 0; }
+  .wire { fill: none; stroke: var(--wire); stroke-width: 2; stroke-dasharray: 5 6; }
+  .head { fill: var(--wire); }
+</style>
+</head>
+<body>
+<script>if (location.hash === '#dark') document.documentElement.className = 'dark';</script>
+<div class="frame">
+  <div class="dots"></div>
+
+  <header>
+    <div class="mark">
+      <!-- a tag with an arrow: "tags go in" -->
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 5h11l14 14-10 10L5 15z"/>
+        <circle cx="11" cy="11" r="2.2" fill="#fff" stroke="none"/>
+      </svg>
+    </div>
+    <div>
+      <h1>yande-and-konachan-to-eagle</h1>
+      <p class="tag">Posts from <b>yande.re</b> and <b>konachan.com</b> go into <b>Eagle</b>, tagged with <b>your own tag names</b>.</p>
+      <div class="pip"><span>$</span>pipx install git+https://github.com/NatLee/yande-and-konachan-to-eagle</div>
+    </div>
+  </header>
+
+  <svg class="wires" width="960" height="400">
+    <path class="wire" d="M232 270 H244"/>
+    <path class="head" d="M252 270 l-8 -4.5 v9 z"/>
+    <path class="wire" d="M446 270 H458"/>
+    <path class="head" d="M466 270 l-8 -4.5 v9 z"/>
+    <path class="wire" d="M666 270 H678"/>
+    <path class="head" d="M686 270 l-8 -4.5 v9 z"/>
+  </svg>
+
+  <div class="node" id="site">
+    <div class="label"><i></i>Site JSON API</div>
+    <div class="mono">GET /post.json</div>
+    <div class="sub"><code>id:&gt;N order:id</code> new ones</div>
+    <div class="sub"><code>--search TAGS</code> any search</div>
+    <div class="sub">100 posts a request, retried</div>
+  </div>
+
+  <div class="node" id="map">
+    <div class="label"><i></i>Your tag map</div>
+    <div class="mono">map.yaml</div>
+    <div class="chips"><span class="from">beach →</span><span class="chip">海邊</span><span class="chip">海灘</span></div>
+    <div class="sub">site tag → your tags</div>
+    <div class="sub">other tags are left out</div>
+  </div>
+
+  <div class="node" id="wrap">
+    <div class="label"><i></i>EagleWrapper</div>
+    <div class="mono">add_from_url(…)</div>
+    <div class="sub"><code>pip install eaglewrapper</code></div>
+    <div class="sub">Eagle's local HTTP API</div>
+    <div class="sub"><code>localhost:41595</code></div>
+  </div>
+
+  <div class="node" id="eagle">
+    <div class="label"><i></i>Eagle</div>
+    <div class="item">
+      <div class="thumb">
+        <!-- a drawn placeholder picture -->
+        <svg width="64" height="64" viewBox="0 0 58 58" preserveAspectRatio="xMidYMid slice">
+          <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="var(--sky1)"/><stop offset="1" stop-color="var(--sky2)"/></linearGradient></defs>
+          <rect width="58" height="58" fill="url(#sky)"/>
+          <circle cx="42" cy="17" r="7" fill="var(--sun)"/>
+          <path d="M0 44 C 14 30, 24 34, 34 42 S 50 36, 58 40 V58 H0z" fill="var(--hill1)"/>
+          <path d="M0 50 C 16 42, 30 46, 58 50 V58 H0z" fill="var(--hill2)"/>
+        </svg>
+      </div>
+      <div class="meta">
+        <div class="chips"><span class="chip">海邊</span><span class="chip">海灘</span></div>
+        <div class="note">AUTO_DOWNLOAD</div>
+        <div class="note">2026-11-04 09:30:00</div>
+      </div>
+    </div>
+    <div class="name">yande.re_12345_beach_sky.jpg</div>
+  </div>
+
+  <div class="foot">
+    <span><b>config.ini</b> remembers the last post ID</span>
+    <span><b>imported.txt</b> skips what is already in</span>
+    <span><b>--dry-run</b> shows it first</span>
+  </div>
+</div>
+</body>
+</html>

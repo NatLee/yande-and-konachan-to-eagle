@@ -18,3 +18,8 @@ log/
 
 *.log
 config.ini
+
+*.egg-info/
+.pytest_cache/
+.venv/
+imported.txt
