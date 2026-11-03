@@ -1,0 +1,63 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        include:
+          # Eagle is a desktop app, so most people run this next to it on Windows or macOS.
+          - os: windows-latest
+            python: "3.14"
+          - os: macos-latest
+            python: "3.14"
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install the tool and pytest
+        run: python -m pip install -e . pytest
+      - name: Run the tests
+        # The tests talk to a fake site and a fake Eagle on local ports: no network, no Eagle needed.
+        run: python -m pytest -v
+
+  package:
+    # Build the wheel and install it with pipx, the way the README tells people to.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check --strict dist/*
+      - name: The wheel carries the example tag map
+        run: python -m zipfile -l dist/*.whl | grep 'yk2eagle/map.example.yaml'
+      - name: Install with pipx and run both commands
+        run: |
+          pipx install dist/*.whl
+          yande-and-konachan-to-eagle --version
+          yk2eagle --help
+      - name: python main.py works from a checkout after pip install -r requirements.txt
+        run: |
+          python -m venv /tmp/checkout-venv
+          /tmp/checkout-venv/bin/pip install -r requirements.txt
+          /tmp/checkout-venv/bin/python main.py --version
