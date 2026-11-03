@@ -20,9 +20,12 @@ def json_reply(data: Any, status: int = 200, headers: Optional[dict[str, str]] =
 
 
 class FakeServer:
-    """A real HTTP server; subclasses answer requests in :meth:`answer`."""
+    """A real HTTP server; subclasses answer requests in :meth:`answer`.
 
-    def __init__(self) -> None:
+    ``port=0`` (the default) lets the system pick a free port.
+    """
+
+    def __init__(self, port: int = 0) -> None:
         self.requests: list[dict[str, Any]] = []
         self.scripted: list[Reply] = []  # answered first, one per request, before :meth:`answer`
         server = self
@@ -55,7 +58,7 @@ class FakeServer:
             def log_message(self, *args: Any) -> None:  # keep the test output quiet
                 pass
 
-        self.httpd = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        self.httpd = ThreadingHTTPServer(('127.0.0.1', port), Handler)
         self.url = f'http://127.0.0.1:{self.httpd.server_port}'
         # A short poll interval makes shutdown() quick, so each test ends without a pause.
         self._thread = threading.Thread(target=self.httpd.serve_forever, kwargs={'poll_interval': 0.02},
@@ -88,12 +91,12 @@ def make_post(post_id: int, tags: str = 'landscape sky', rating: str = 's', *, s
 class FakeSite(FakeServer):
     """Answers ``GET /post.json`` the way Moebooru does, for the search terms the tool sends.
 
-    Understands plain tags (all must match), ``rating:x``, ``id:>N`` and ``order:id``
+    Understands plain tags (all must match), ``rating:x``, ``id:N``, ``id:>N`` and ``order:id``
     (oldest first; newest first otherwise), plus ``limit`` and ``page``.
     """
 
-    def __init__(self, posts: Optional[list[dict[str, Any]]] = None) -> None:
-        super().__init__()
+    def __init__(self, posts: Optional[list[dict[str, Any]]] = None, port: int = 0) -> None:
+        super().__init__(port)
         self.posts = list(posts or [])
 
     @property
@@ -108,6 +111,8 @@ class FakeSite(FakeServer):
         for term in terms:
             if term.startswith('id:>'):
                 posts = [post for post in posts if post['id'] > int(term[4:])]
+            elif term.startswith('id:'):
+                posts = [post for post in posts if post['id'] == int(term[3:])]
             elif term.startswith('rating:'):
                 posts = [post for post in posts if post['rating'] == term[7:8]]
             elif term != 'order:id':
@@ -120,8 +125,8 @@ class FakeSite(FakeServer):
 class FakeEagle(FakeServer):
     """Answers the Eagle V1 calls the tool makes, and remembers what was added."""
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, port: int = 0) -> None:
+        super().__init__(port)
         self.refuse: set[str] = set()  # item names to answer with {"status": "error"}
         self.folders: list[dict[str, Any]] = []
 
