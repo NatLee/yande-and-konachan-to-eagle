@@ -9,6 +9,7 @@
   <a href="https://github.com/NatLee/yande-and-konachan-to-eagle/actions/workflows/test.yml"><img src="https://github.com/NatLee/yande-and-konachan-to-eagle/actions/workflows/test.yml/badge.svg" alt="Test"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FNatLee%2Fyande-and-konachan-to-eagle%2Fmain%2Fpyproject.toml" alt="Python 版本"></a>
   <a href="https://pypi.org/project/EagleWrapper/"><img src="https://img.shields.io/pypi/v/EagleWrapper?label=built%20with%20EagleWrapper" alt="使用 EagleWrapper 製作"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/NatLee/yande-and-konachan-to-eagle" alt="授權：MIT"></a>
 </p>
 
 [English](README.md) | [繁體中文](README.TW.md)
