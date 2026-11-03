@@ -12,6 +12,7 @@ authors = [{ name = "Nat Lee", email = "natlee.work@gmail.com" }]
 keywords = ["eagle", "eaglewrapper", "yande.re", "konachan", "moebooru", "image-collection"]
 classifiers = [
     "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Topic :: Multimedia :: Graphics",

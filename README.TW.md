@@ -306,3 +306,7 @@ pytest
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
+
+## 授權
+
+[MIT](LICENSE)
