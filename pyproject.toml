@@ -17,13 +17,12 @@ classifiers = [
     "Topic :: Multimedia :: Graphics",
 ]
 dependencies = [
-    "beautifulsoup4",
-    "eaglewrapper==1.1.1",
+    "eaglewrapper~=2.0",
     "loguru",
     "pyyaml",
-    "requests",
+    "requests>=2.25",
     "tqdm",
-    "xmltodict",
+    "urllib3>=1.26",
 ]
 
 [project.urls]
