@@ -33,6 +33,9 @@ Issues = "https://github.com/NatLee/yande-and-konachan-to-eagle/issues"
 yande-and-konachan-to-eagle = "yk2eagle.cli:main"
 yk2eagle = "yk2eagle.cli:main"
 
+[tool.setuptools.package-data]
+yk2eagle = ["map.example.yaml"]
+
 [tool.setuptools.dynamic]
 version = { attr = "yk2eagle.__version__" }
 

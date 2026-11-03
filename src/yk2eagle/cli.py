@@ -17,7 +17,7 @@ from . import __version__
 from .config import Config, create_default_config_file
 from .importer import Importer, Summary
 from .moebooru import SITES, MoebooruClient, Post, SiteError
-from .tag_manager import TagManager
+from .tag_manager import TagManager, create_map_from_example
 
 DEFAULT_TARGET = 'konachan'
 EAGLE_TIMEOUT = 60  # seconds to wait for Eagle to answer one call
@@ -62,9 +62,11 @@ def load_config(path: str) -> Config:
 
 def load_tag_map(path: str) -> TagManager:
     try:
+        if not Path(path).exists():
+            create_map_from_example(path)
+            logger.warning(f'Path [{path}] does not exist! Created it from the example map: '
+                           'edit it to give the images your own tags.')
         return TagManager(path)
-    except FileNotFoundError as exc:
-        raise CliError(f'No tag map at {path}. Copy map.example.yaml there and edit it (see the README).') from exc
     except (OSError, ValueError, yaml.YAMLError) as exc:
         raise CliError(f'Cannot read the tag map {path}: {exc}') from exc
 

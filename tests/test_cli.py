@@ -10,6 +10,7 @@ from fakes import make_post
 from yk2eagle import cli
 from yk2eagle.config import default_config_text
 from yk2eagle.moebooru import MoebooruClient, make_session
+from yk2eagle.tag_manager import EXAMPLE_MAP
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -141,3 +142,15 @@ def test_main_py_still_runs_from_a_checkout():
 
     for option in ('--config_path', '--yaml_path', '--target'):
         assert option in result.stdout
+
+
+def test_a_missing_tag_map_is_created_from_the_example(workdir, site, fake_eagle, capsys):
+    (workdir / 'map.yaml').unlink()
+    site.posts = [make_post(1, 'bikini beach')]
+    write_config(workdir / 'config.ini', site.url)
+
+    assert cli.main(['--target', 'yande', '--eagle-url', fake_eagle.url]) == 0
+
+    assert (workdir / 'map.yaml').read_bytes() == EXAMPLE_MAP.read_bytes()
+    assert 'Created it from the example map' in capsys.readouterr().err
+    assert fake_eagle.added[0]['tags'] == ['比基尼', '泳衣', '海邊', '海灘']

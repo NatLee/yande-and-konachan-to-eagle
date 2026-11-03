@@ -7,15 +7,27 @@ The map lists a site tag and the tags you want in Eagle for it::
     - 泳衣
     miko: 巫女服    # a single tag can skip the list
 
-Site tags that are not in the map are left out.
+Site tags that are not in the map are left out. A starting map ships with the package
+(:data:`EXAMPLE_MAP`); the command line copies it to ``map.yaml`` on the first run.
 """
 from __future__ import annotations
 
+import shutil
+from importlib import resources
 from typing import Any, Iterable
 
 import yaml
 
 TagMap = dict[str, list[str]]
+
+#: The example map inside the package, a few dozen common tags with Chinese names.
+EXAMPLE_MAP = resources.files(__package__) / 'map.example.yaml'
+
+
+def create_map_from_example(path: str) -> None:
+    """Write the example map to ``path``."""
+    with resources.as_file(EXAMPLE_MAP) as example:
+        shutil.copyfile(example, path)
 
 
 def normalize_map(data: Any, source: str = 'the tag map') -> TagMap:

@@ -5,7 +5,7 @@ import unittest
 import pytest
 import yaml
 
-from yk2eagle.tag_manager import TagManager
+from yk2eagle.tag_manager import EXAMPLE_MAP, TagManager, create_map_from_example
 
 
 class TestTagManager(unittest.TestCase):
@@ -92,3 +92,12 @@ def test_write_saves_a_map_that_reads_back_the_same(tmp_path):
 
     assert TagManager(path).mapper == {'bikini': ['比基尼', '泳衣']}
     assert '比基尼' in (tmp_path / 'map.yaml').read_text(encoding='utf-8')
+
+
+def test_the_example_map_that_ships_with_the_package_is_a_valid_map(tmp_path):
+    path = tmp_path / 'map.yaml'
+    create_map_from_example(str(path))
+
+    manager = TagManager(str(path))
+    assert path.read_bytes() == EXAMPLE_MAP.read_bytes()
+    assert manager.get_ch_tags_from_eng(['bikini', 'beach']) == ['比基尼', '泳衣', '海邊', '海灘']
